@@ -6,6 +6,7 @@ from tensorflow.keras.preprocessing.text import tokenizer_from_json
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 import pickle
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 app = FastAPI()
 
@@ -17,10 +18,11 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type"],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    expose_headers=["Content-Disposition"]
 )
 
 model = load_model('./model.h5')
@@ -70,3 +72,22 @@ async def trial(request: Request):
             else:
                 print("Error: Failed to retrieve data from the API")
                 return {"message": "Error"}
+
+class TextInput(BaseModel):
+    text: str
+
+@app.post('/test_prediction')
+async def test_prediction(text_input: TextInput):
+    # Assuming 'tokenizer', 'model', and 'pad_sequences' are already defined
+
+    # Preprocess the text
+    sequence = tokenizer.texts_to_sequences([text_input.text])
+    sequence = pad_sequences(sequence, maxlen=250)
+
+    # Make the prediction
+    predictions = model.predict(sequence)
+
+    # Get the prediction label
+    prediction_label = 'Slang' if predictions[0][0] >= 0.5 else 'Not Slang'
+
+    return {"prediction": prediction_label}
